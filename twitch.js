@@ -72,7 +72,7 @@ function onMessageHandler (target, context, msg, self) {
           onPublish(mqtt_topic + "led3",color);
           console.log(`* Executed ${commandName} command`);
           break;
-        case "run":
+        case "runs":
           if(!interval){
             interval = setInterval(()=>{
               onPublish(mqtt_topic + "led1",randColor());
