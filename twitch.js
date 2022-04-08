@@ -54,61 +54,37 @@ function onMessageHandler (target, context, msg, self) {
 
   // Remove whitespace from chat message and ignore case
   const commandName = msg.trim().toLowerCase();
-
+  const topicName = mqtt_topic + commandName.substring(1, 5);
+  const color = selectColor(commandName.substring(6));
+  let interval;
   // Exemple of an MQTT message that change the color of 3 different LEDs by typing "!led[number] [color]" in the chat
-  if (commandName.substring(1, 5) === 'led1' || commandName.substring(1, 5) === 'led2' || commandName.substring(1, 5) === 'led3') {
-    const topicName = mqtt_topic + commandName.substring(1, 5);
-    switch (commandName.substring(6)) {
-      case 'rouge':
-      case 'red':
-        onPublish(topicName,'#FF0000');
-      break;
-      case 'vert':
-      case 'green':
-        onPublish(topicName,'#00FF00');
-      break;
-      case 'bleu':
-      case 'blue':
-        onPublish(topicName,'#0000FF');
-      break;
-      case 'cyan':
-        onPublish(topicName,'#00FFFF');
-      break;
-      case 'magenta':
-      case 'fushia':
-        onPublish(topicName,'#FF00FF');
-      break;
-      case 'jaune':
-      case 'yellow':
-        onPublish(topicName,'#FFDD00');
-      break;
-      case 'orange':
-        onPublish(topicName,'#FF6600');
-      break;
-      case 'turquoise':
-      case 'teal':
-        onPublish(topicName,'#00FF88');
-      break;
-      case 'rose':
-      case 'pink':
-        onPublish(topicName,'#FF44FF');
-      break;
-      case 'violet':
-        onPublish(topicName,'#8000FF');
-      break;
-      case 'blanc':
-      case 'white':
-        onPublish(topicName,'#FFFFFF');
-      break;
-      case 'noir':
-      case 'black':
-      case 'off':
-        onPublish(topicName,'#000000');
-      break;
+    if(color){
+      switch(commandName.substring(1, 5)){
+        case "led1":
+        case "led2":
+        case "led3":
+          onPublish(topicName,color);
+          console.log(`* Executed ${commandName} command`);
+          break;
+        case "leds":
+          onPublish(mqtt_topic + "led1",color);
+          onPublish(mqtt_topic + "led2",color);
+          onPublish(mqtt_topic + "led3",color);
+          console.log(`* Executed ${commandName} command`);
+          break;
+        case "run":
+          interval = setInterval(()=>{
+            onPublish(mqtt_topic + "led1",randColor());
+            onPublish(mqtt_topic + "led2",randColor());
+            onPublish(mqtt_topic + "led3",randColor());
+          },10000);
+          break;
+        case "stop":
+          clearInterval(interval);
+          break;
+      }
     }
-    if (hexColor.test(commandName.substring(6)) === true) {onPublish(topicName,commandName.substring(6));}
-    console.log(`* Executed ${commandName} command`);
-  }
+    
 }
 
 // MQTT publish
@@ -119,4 +95,52 @@ function onPublish (tpc, msg) {
 // Called every time the bot connects to Twitch chat
 function onConnectedHandler (addr, port) {
   console.log(`* Connected to ${addr}:${port}`);
+}
+
+function selectColor(color){
+  switch (color) {
+    case 'rouge':
+    case 'red':
+      return'#FF0000';
+    case 'vert':
+    case 'green':
+      return'#00FF00';
+    case 'bleu':
+    case 'blue':
+      return'#0000FF';
+    case 'cyan':
+      return'#00FFFF';
+    case 'magenta':
+    case 'fushia':
+      return'#FF00FF';
+    case 'jaune':
+    case 'yellow':
+      return'#FFDD00';
+    case 'orange':
+      return'#FF6600';
+    case 'turquoise':
+    case 'teal':
+      return'#00FF88';
+    case 'rose':
+    case 'pink':
+      return'#FF44FF';
+    case 'violet':
+      return'#8000FF';
+    case 'blanc':
+    case 'white':
+      return'#FFFFFF';
+    case 'noir':
+    case 'black':
+    case 'off':
+      return'#000000';
+    case "random":
+    case "rand":
+      return randColor();
+    default:
+      if (hexColor.test(color) === true) {return color;}
+      else{ return false;}
+  }
+}
+function randColor(){
+  return Math.floor(Math.random()*16777215).toString(16);
 }
