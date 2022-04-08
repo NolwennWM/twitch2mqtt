@@ -79,12 +79,14 @@ function onMessageHandler (target, context, msg, self) {
               onPublish(mqtt_topic + "led2",randColor());
               onPublish(mqtt_topic + "led3",randColor());
             },10000);
+            console.log(`* Executed ${commandName} command`);
           }
           
           break;
         case "stop":
           clearInterval(interval);
           interval = false;
+          console.log(`* Executed ${commandName} command`);
           break;
       }
     }
