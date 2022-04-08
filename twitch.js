@@ -56,7 +56,7 @@ function onMessageHandler (target, context, msg, self) {
   const commandName = msg.trim().toLowerCase();
   const topicName = mqtt_topic + commandName.substring(1, 5);
   const color = selectColor(commandName.substring(6));
-  let interval;
+  let interval = false;
   // Exemple of an MQTT message that change the color of 3 different LEDs by typing "!led[number] [color]" in the chat
     if(color){
       switch(commandName.substring(1, 5)){
@@ -73,14 +73,18 @@ function onMessageHandler (target, context, msg, self) {
           console.log(`* Executed ${commandName} command`);
           break;
         case "run":
-          interval = setInterval(()=>{
-            onPublish(mqtt_topic + "led1",randColor());
-            onPublish(mqtt_topic + "led2",randColor());
-            onPublish(mqtt_topic + "led3",randColor());
-          },10000);
+          if(!interval){
+            interval = setInterval(()=>{
+              onPublish(mqtt_topic + "led1",randColor());
+              onPublish(mqtt_topic + "led2",randColor());
+              onPublish(mqtt_topic + "led3",randColor());
+            },10000);
+          }
+          
           break;
         case "stop":
           clearInterval(interval);
+          interval = false;
           break;
       }
     }
