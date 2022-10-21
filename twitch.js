@@ -1,152 +1,250 @@
-const tmi = require('tmi.js');
-const mqtt = require('mqtt');
+const tmi = require('tmi.js')
+const mqtt = require('mqtt')
 
 // User Configuration
-const mqtt_host = 'MQTT_BROKER_IP';
-const mqtt_port = 'MQTT_BROKER_PORT'; //default is 1883
-const mqtt_username = 'MQTT_USERNAME';
-const mqtt_password = 'MQTT_PASSWORD';
-const mqtt_topic = '/twitch/'; //root of the MQTT topic where messages are published
-const twitch_channel = 'TWITCH_CHANNEL';
-const twitch_password = 'TWITCH_KEY'; //starting with "oauth:"
-const twitch_botname = 'TWITCH_BOTNAME';
+const mqtt_host = 'MQTT_BROKER_IP'
+const mqtt_port = 'MQTT_BROKER_PORT' //default is 1883
+const mqtt_username = 'MQTT_USERNAME'
+const mqtt_password = 'MQTT_PASSWORD'
+const mqtt_topic = '/twitch/' //root of the MQTT topic where messages are published
+const twitch_channel = 'TWITCH_CHANNEL'
+const twitch_password = 'TWITCH_KEY' //starting with "oauth:"
+const twitch_botname = 'TWITCH_BOTNAME'
 
 // MQTT Connection
-const connectUrl = `mqtt://${mqtt_host}:${mqtt_port}`;
-const clientId = `mqtt_${Math.random().toString(16).slice(3)}`;
+const connectUrl = `mqtt://${mqtt_host}:${mqtt_port}`
+const clientId = `mqtt_${Math.random().toString(16).slice(3)}`
 const clientMqtt = mqtt.connect(connectUrl, {
-  clientId,
-  clean: true,
-  connectTimeout: 4000,
-  username: mqtt_username,
-  password: mqtt_password,
-  reconnectPeriod: 1000,
-});
+	clientId,
+	clean: true,
+	connectTimeout: 4000,
+	username: mqtt_username,
+	password: mqtt_password,
+	reconnectPeriod: 1000,
+})
 
 // Twitch chat connection
 const opts = {
-  identity: {
-    username: twitch_botname,
-    password: twitch_password
-  },
-  channels: [
-    twitch_channel
-  ]
-};
-
-// Create a client with our options
-const clientTwitch = new tmi.client(opts);
-
-// RegExp
-const hexColor = new RegExp("^#[a-fA-F0-9]{6}$");
-
-// Register our event handlers (defined below)
-clientTwitch.on('message', onMessageHandler);
-clientTwitch.on('connected', onConnectedHandler);
-clientMqtt.on('connect', onPublish);
-
-// Connect to Twitch:
-clientTwitch.connect();
-
-// Called every time a message comes in
-function onMessageHandler (target, context, msg, self) {
-  if (self) { return; } // Ignore messages from the bot
-
-  // Remove whitespace from chat message and ignore case
-  const commandName = msg.trim().toLowerCase();
-  const topicName = mqtt_topic + commandName.substring(1, 5);
-  const color = selectColor(commandName.substring(6));
-  let interval = false;
-  // Exemple of an MQTT message that change the color of 3 different LEDs by typing "!led[number] [color]" in the chat
-    if(color){
-      switch(commandName.substring(1, 5)){
-        case "led1":
-        case "led2":
-        case "led3":
-          onPublish(topicName,color);
-          console.log(`* Executed ${commandName} command`);
-          break;
-        case "leds":
-          onPublish(mqtt_topic + "led1",color);
-          onPublish(mqtt_topic + "led2",color);
-          onPublish(mqtt_topic + "led3",color);
-          console.log(`* Executed ${commandName} command`);
-          break;
-        case "runs":
-          if(!interval){
-            interval = setInterval(()=>{
-              onPublish(mqtt_topic + "led1",randColor());
-              onPublish(mqtt_topic + "led2",randColor());
-              onPublish(mqtt_topic + "led3",randColor());
-            },10000);
-            console.log(`* Executed ${commandName} command`);
-          }
-          
-          break;
-        case "stop":
-          clearInterval(interval);
-          interval = false;
-          console.log(`* Executed ${commandName} command`);
-          break;
-      }
-    }
-    
+	identity: {
+		username: twitch_botname,
+		password: twitch_password
+	},
+	channels: [
+		twitch_channel
+	]
 }
 
+// Create a client with our options
+const clientTwitch = new tmi.client(opts)
+
+// Register our event handlers (defined below)
+clientTwitch.on('message', onMessageHandler)
+clientTwitch.on('connected', onConnectedHandler)
+clientMqtt.on('connect', onPublish)
+
+// Connect to Twitch:
+clientTwitch.connect()
+
+// ↑ Don't touch ↑
+/*
+                              |
+                              |
+                              |
+                              |
+                              |
+                              |
+                              |
+                          _ ----- _
+                     .-~             ~-.
+                   /                     \
+        .-- -- -- |                       | -- -- --.
+    .-~ / ~~ ~~ ~~ \        O   O        / ~~ ~~ ~~ \ ~-.
+.-~   /        _ - ~ ~-.             .-~ ~ - _        \   ~-.
+    /      /~          /  ~ ----- ~  \          ~\      \
+  /       /           /               \           \       \
+         /           /                 \           \
+        /           /                   \           \
+       /           |                     |           \
+                   |                     |
+                   |                     |
+                   |                     |
+                   |                     |
+						 I am a friendly spider, here to eat bugs
+*/
+
+// RegExp
+const hexColour = new RegExp("^#[a-fA-F0-9]{6}$"),
+ledCommand = new RegExp("^led(?=[1-3]{1,3})([1-3])(?!\1)([1-3])?(?!\1)(?!\2)([1-3])?$")
+
+// Called every time a message comes in
+function onMessageHandler (target, context, msg, self) 
+{
+	if (self) { return } // Ignore messages from the bot
+
+	// Exemple of an MQTT message that change the colour of 3 different LEDs by typing "!led[number] [colour]" in the chat
+	
+	const commandName = msg.trim().toLowerCase()
+	let commandBaseTab = commandName.split(" ")
+    if(ledCommand.test(commandBaseTab[0].substring(1)) && commandBaseTab.length === (commandBaseTab[0].length-2))
+    {
+        let cmd = {}, leds = commandBaseTab[0].substring(4);
+        for(let l of leds)
+        {
+            let c = selectColour(commandBaseTab[leds.indexof(l)])
+            if(!c)return;
+            cmd[l] = c;
+        }
+        multiPublish(cmd);
+        return;
+    }
+	switch(commandBaseTab[0].substring(1))
+	{
+	case "led1":
+	case "led2":
+	case "led3":
+		const colour = selectColour(commandName.substring(6))
+		const topicName = mqtt_topic + commandName.substring(1, 5)
+		if(colour)
+		{
+			onPublish(topicName,colour)
+			console.log(`* Executed ${commandName} command`)
+		}
+		break
+	case "leds":
+		let preColour = commandName.substring(6)
+		switch (preColour.toLowerCase())
+		{
+		case "blouge":
+            let c1, c2;
+			if(Math.floor(Math.random()*2))
+			{
+                c1 = "bleu";
+                c2 = "rouge";
+			}
+			else
+			{
+                c1 = "rouge";
+                c2 = "bleu";
+			}
+            multiPublish({1:c1, 2:"magenta", 3:c2})
+			break
+		case "RGB":
+            multiPublish({1:"rouge", 2:"vert", 3:"bleu"})
+			break
+		case "CMY":
+		case "primaires":
+            multiPublish({1:"cyan", 2:"magenta", 3:"jaune"})
+			break
+		case "france":
+		case "rance":
+		case "fra":
+		case "fr":
+		case "sonic":
+            multiPublish({1:"bleu", 2:"blanc", 3:"rouge"})
+			break
+		case "tails":
+            multiPublish({1:"orange", 2:"blanc", 3:"rouge"})
+			break
+		case "knuckles":
+            multiPublish({1:"rouge", 2:"blanc", 3:"vert"})
+			break
+		case "STK":
+		case "teamhero":
+            multiPublish({1:"bleu", 2:"orange", 3:"rouge"})
+			break
+		case "nights":
+            multiPublish({1:"violet", 2:"magenta", 3:"blanc"})
+			break
+		case "reimu":
+            multiPublish({1:"marron", 2:"rouge", 3:"blanc"})
+			break
+      
+		default:
+			const colour = selectColour(commandName.substring(6))
+			if(colour)
+			{
+                multiPublish({1:colour, 2:colour, 3:colour})
+			}
+		}//switch "2"
+		console.log(`* Executed ${commandName} command`)
+		break
+	case "ledsr":		
+			onPublish(mqtt_topic + "led1",randColour())
+			onPublish(mqtt_topic + "led2",randColour())
+			onPublish(mqtt_topic + "led3",randColour())
+			console.log(`* Executed ${commandName} command`)
+		break
+	}//switch
+}
+function multiPublish(commands)
+{
+    for(let i of commands)
+    {
+        onPublish(mqtt_topic + `led${i}`,selectColour(commands[i]));
+    }
+}
 // MQTT publish
-function onPublish (tpc, msg) {
-  clientMqtt.publish(tpc, msg);
+function onPublish (tpc, msg) 
+{
+	clientMqtt.publish(tpc, msg)
 }
 
 // Called every time the bot connects to Twitch chat
-function onConnectedHandler (addr, port) {
-  console.log(`* Connected to ${addr}:${port}`);
+function onConnectedHandler (addr, port) 
+{
+	console.log(`* Connected to ${addr}:${port}`)
 }
-
-function selectColor(color){
-  switch (color) {
-    case 'rouge':
-    case 'red':
-      return'#FF0000';
-    case 'vert':
-    case 'green':
-      return'#00FF00';
-    case 'bleu':
-    case 'blue':
-      return'#0000FF';
-    case 'cyan':
-      return'#00FFFF';
-    case 'magenta':
-    case 'fushia':
-      return'#FF00FF';
-    case 'jaune':
-    case 'yellow':
-      return'#FFDD00';
-    case 'orange':
-      return'#FF6600';
-    case 'turquoise':
-    case 'teal':
-      return'#00FF88';
-    case 'rose':
-    case 'pink':
-      return'#FF44FF';
-    case 'violet':
-      return'#8000FF';
-    case 'blanc':
-    case 'white':
-      return'#FFFFFF';
-    case 'noir':
-    case 'black':
-    case 'off':
-      return'#000000';
-    case "random":
-    case "rand":
-      return randColor();
-    default:
-      if (hexColor.test(color) === true) {return color;}
-      else{ return false;}
-  }
+	
+function selectColour(colour)
+{
+	switch (colour.toLowerCase()) 
+	{
+		case 'rouge':
+		case 'red':
+			return'#FF0000'
+		case 'vert':
+		case 'green':
+			return'#00FF00'
+		case 'bleu':
+		case 'blue':
+			return'#0000FF'
+		case 'cyan':
+			return'#00FFFF'
+		case 'magenta':
+		case 'fushia':
+			return'#FF00FF'
+		case 'jaune':
+		case 'yellow':
+			return'#FFDD00'
+		case 'orange':
+			return'#FF6600'
+		case 'turquoise':
+		case 'teal':
+			return'#00FF88'
+		case 'rose':
+		case 'pink':
+			return'#FF44FF'
+		case 'violet':
+			return'#8000FF'
+		case 'marron':
+		case 'brown':
+			return'#B97A57'
+		case 'blanc':
+		case 'white':
+			return'#FFFFFF'
+		case 'noir':
+		case 'black':
+		case 'off':
+			return'#000000'
+		case "random":
+		case "rand":
+			return randColour()
+		default:
+			if (hexColour.test(colour) === true) {return colour}
+			else{ return false}
+	}
 }
-function randColor(){
-  return "#"+Math.floor(Math.random()*16777215).toString(16);
+function randColour()
+{
+	return "#"+Math.floor(Math.random()*16777215).toString(16)
 }
