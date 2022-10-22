@@ -74,7 +74,8 @@ clientTwitch.connect()
 
 // RegExp
 const hexColour = new RegExp("^#[a-fA-F0-9]{6}$"),
-ledCommand = new RegExp("^led(?=[1-3]{1,3})([1-3])(?!\1)([1-3])?(?!\1)(?!\2)([1-3])?$")
+ledCommand = new RegExp("^led(?=[1-3]{1,3})([1-3])(?!\\1)([1-3])?(?!\\1)(?!\\2)([1-3])?$"),
+ledCommandPatch = new RegExp("^led[1-3]$");
 
 // Called every time a message comes in
 function onMessageHandler (target, context, msg, self) 
@@ -85,31 +86,27 @@ function onMessageHandler (target, context, msg, self)
 	
 	const commandName = msg.trim().toLowerCase()
 	let commandBaseTab = commandName.split(" ")
-    if(ledCommand.test(commandBaseTab[0].substring(1)) && commandBaseTab.length === (commandBaseTab[0].length-2))
+	// TODO : Modifier la regex pour qu'elle accepte les commandes led1, led2 et led3 et retirer le patch
+	// Si la commande cible des leds en particulier
+    if((ledCommand.test(commandBaseTab[0].substring(1))|| ledCommandPatch.test(commandBaseTab[0].substring(1))) && commandBaseTab.length >1)
     {
-        let cmd = {}, leds = commandBaseTab[0].substring(4);
+		// On récupère les numéros des leds
+        let cmd = {}, leds = commandBaseTab[0].substring(4), colorRequest
+		// Pour chaque leds
         for(let l of leds)
         {
-            let c = selectColour(commandBaseTab[leds.indexof(l)])
+			// si la couleur correspondante existe, on l'ajoute à la liste de commande.
+			colorRequest = commandBaseTab[leds.indexof(l)+1]??colorRequest
+            let c = selectColour(colorRequest)
             if(!c)return;
             cmd[l] = c;
         }
         multiPublish(cmd);
+		console.log(`* Executed ${commandName} command`)
         return;
     }
 	switch(commandBaseTab[0].substring(1))
 	{
-	case "led1":
-	case "led2":
-	case "led3":
-		const colour = selectColour(commandName.substring(6))
-		const topicName = mqtt_topic + commandName.substring(1, 5)
-		if(colour)
-		{
-			onPublish(topicName,colour)
-			console.log(`* Executed ${commandName} command`)
-		}
-		break
 	case "leds":
 		let preColour = commandName.substring(6)
 		switch (preColour.toLowerCase())
@@ -158,7 +155,6 @@ function onMessageHandler (target, context, msg, self)
 		case "reimu":
             multiPublish({1:"marron", 2:"rouge", 3:"blanc"})
 			break
-      
 		default:
 			const colour = selectColour(commandName.substring(6))
 			if(colour)
@@ -169,9 +165,7 @@ function onMessageHandler (target, context, msg, self)
 		console.log(`* Executed ${commandName} command`)
 		break
 	case "ledsr":		
-			onPublish(mqtt_topic + "led1",randColour())
-			onPublish(mqtt_topic + "led2",randColour())
-			onPublish(mqtt_topic + "led3",randColour())
+            multiPublish({1:randColour(), 2:randColour(), 3:randColour()})
 			console.log(`* Executed ${commandName} command`)
 		break
 	}//switch
