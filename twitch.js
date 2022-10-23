@@ -1,6 +1,6 @@
 const tmi = require('tmi.js')
 const mqtt = require('mqtt')
-
+// node 12.22.10
 // User Configuration
 const mqtt_host = 'MQTT_BROKER_IP'
 const mqtt_port = 'MQTT_BROKER_PORT' //default is 1883
@@ -96,7 +96,7 @@ function onMessageHandler (target, context, msg, self)
         for(let l of leds)
         {
 			// si la couleur correspondante existe, on l'ajoute à la liste de commande.
-			colorRequest = commandBaseTab[leds.indexOf(l)+1]??colorRequest
+			colorRequest = commandBaseTab[leds.indexof(l)+1]? commandBaseTab[leds.indexof(l)+1] : colorRequest
             let c = selectColour(colorRequest)
             if(!c)return;
             cmd[l] = c;
@@ -172,7 +172,7 @@ function onMessageHandler (target, context, msg, self)
 }
 function multiPublish(commands)
 {
-    for(let i of commands)
+    for(let i in commands)
     {
         onPublish(mqtt_topic + `led${i}`,selectColour(commands[i]));
     }
