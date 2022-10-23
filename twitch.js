@@ -96,7 +96,7 @@ function onMessageHandler (target, context, msg, self)
         for(let l of leds)
         {
 			// si la couleur correspondante existe, on l'ajoute à la liste de commande.
-			colorRequest = commandBaseTab[leds.indexof(l)+1]??colorRequest
+			colorRequest = commandBaseTab[leds.indexOf(l)+1]??colorRequest
             let c = selectColour(colorRequest)
             if(!c)return;
             cmd[l] = c;
